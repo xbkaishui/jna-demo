@@ -1,23 +1,64 @@
 package com.xbkaishui.jna;
 
+import com.google.crypto.tink.subtle.Hex;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Platform;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import org.apache.commons.io.FileUtils;
+
 public class HelloWorld {
 
-    // This is the standard, stable way of mapping, which supports extensive
-    // customization and mapping of Java to native types.
+	// This is the standard, stable way of mapping, which supports extensive
+	// customization and mapping of Java to native types.
 
-    public interface CLibrary extends Library {
-        CLibrary INSTANCE = Native.load(Platform.C_LIBRARY_NAME, CLibrary.class);
+	public interface CLibrary extends Library {
+		CLibrary INSTANCE = Native.load(Platform.C_LIBRARY_NAME, CLibrary.class);
 
-        void printf(String format, Object... args);
-    }
+		void printf(String format, Object... args);
+	}
 
-    public static void main(String[] args) {
-        CLibrary.INSTANCE.printf("Hello, World\n");
-        for (int i=0;i < args.length;i++) {
-            CLibrary.INSTANCE.printf("Argument %d: %s\n", i, args[i]);
-        }
-    }
+	public static void testCLibrary(String[] args) {
+		CLibrary.INSTANCE.printf("Hello, World\n");
+		for (int i = 0; i < args.length; i++) {
+			CLibrary.INSTANCE.printf("Argument %d: %s\n", i, args[i]);
+		}
+	}
+
+	public static void testCurve25519Library(String[] args) {
+		byte[] shared = new byte[32];
+		byte[] secretKey = Hex.decode("efe4d51066c4b3c1927928dfd0a9fdcf57045acc73dc3190a4ba09b7db9991bb");
+		byte[] publicKey = Hex.decode("422c8e7a6227d7bca1350b3e2bb7279f7897b87bb6854b783c60e80311ae3079");
+		Curve25519Library.INSTANCE.curve25519_donna(shared, secretKey, publicKey);
+		System.out.println(Hex.encode(shared));
+		long start = System.currentTimeMillis();
+		for (int i = 0; i < 100000; i++) {
+			Curve25519Library.INSTANCE.curve25519_donna(shared, secretKey, publicKey);
+		}
+		long end = System.currentTimeMillis();
+		System.out.println("cost " + (end - start));
+	}
+
+	public interface Curve25519Library extends Library {
+		Curve25519Library INSTANCE = Native.load(extractFile("macx/curve25519.so"), Curve25519Library.class);
+		void curve25519_donna(byte[] shared, byte[] secret, byte[] publicKey);
+	}
+
+	private static String extractFile(final String fileName) {
+		try {
+			final InputStream source = Curve25519Library.class.getClassLoader().getResourceAsStream(fileName);
+			final File file = File.createTempFile("lib", null);
+			FileUtils.copyInputStreamToFile(source, file);
+			return file.getAbsolutePath();
+		} catch (Throwable e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static void main(String[] args) {
+		testCurve25519Library(args);
+		//		testCLibrary(args);
+	}
 }
