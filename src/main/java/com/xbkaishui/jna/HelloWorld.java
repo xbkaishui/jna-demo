@@ -7,6 +7,8 @@ import com.sun.jna.Platform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.io.FileUtils;
 
 public class HelloWorld {
@@ -41,6 +43,30 @@ public class HelloWorld {
 		System.out.println("cost " + (end - start));
 	}
 
+	public static void testPerfCurve25519Library(String[] args) {
+		byte[] shared = new byte[32];
+		byte[] secretKey = Hex.decode("efe4d51066c4b3c1927928dfd0a9fdcf57045acc73dc3190a4ba09b7db9991bb");
+		byte[] publicKey = Hex.decode("422c8e7a6227d7bca1350b3e2bb7279f7897b87bb6854b783c60e80311ae3079");
+		Curve25519Library.INSTANCE.curve25519_donna(shared, secretKey, publicKey);
+		String sharedResult = Hex.encode(shared);
+		System.out.println(sharedResult);
+		int count = 1_000_000;
+		List<byte[]> dataList = new ArrayList<>(count);
+		for (int i = 0; i < count; i++) {
+			dataList.add(publicKey);
+		}
+		System.out.println("start..............");
+		long start = System.currentTimeMillis();
+		dataList.parallelStream().forEach(pbKey -> {
+			byte[] shared2 = new byte[32];
+			Curve25519Library.INSTANCE.curve25519_donna(shared2, secretKey, pbKey);
+			assert Hex.encode(shared2).equalsIgnoreCase(sharedResult);
+		});
+		System.out.println("end..............");
+		long end = System.currentTimeMillis();
+		System.out.println("cost " + (end - start));
+	}
+
 	public interface Curve25519Library extends Library {
 		Curve25519Library INSTANCE = Native.load(extractFile("macx/curve25519.so"), Curve25519Library.class);
 		void curve25519_donna(byte[] shared, byte[] secret, byte[] publicKey);
@@ -58,7 +84,8 @@ public class HelloWorld {
 	}
 
 	public static void main(String[] args) {
-		testCurve25519Library(args);
+//		testCurve25519Library(args);
+		testPerfCurve25519Library(args);
 		//		testCLibrary(args);
 	}
 }
