@@ -50,33 +50,43 @@ public class HelloWorld {
 		Curve25519Library.INSTANCE.curve25519_donna(shared, secretKey, publicKey);
 		String sharedResult = Hex.encode(shared);
 		System.out.println(sharedResult);
-		int count = 1_000_000;
+		int count = 1_000;
 		List<byte[]> dataList = new ArrayList<>(count);
 		for (int i = 0; i < count; i++) {
 			dataList.add(publicKey);
 		}
-		System.out.println("start..............");
+		System.out.println("parallel calc start..............");
 		long start = System.currentTimeMillis();
 		dataList.parallelStream().forEach(pbKey -> {
 			byte[] shared2 = new byte[32];
 			Curve25519Library.INSTANCE.curve25519_donna(shared2, secretKey, pbKey);
 			assert Hex.encode(shared2).equalsIgnoreCase(sharedResult);
 		});
-		System.out.println("end..............");
+		System.out.println("parallel calc end..............");
 		long end = System.currentTimeMillis();
-		System.out.println("cost " + (end - start));
+		System.out.println("parallel calc cost " + (end - start));
+
+		System.out.println("serial calc start..............");
+		long start_2 = System.currentTimeMillis();
+		dataList.stream().forEach(pbKey -> {
+			byte[] shared2 = new byte[32];
+			Curve25519Library.INSTANCE.curve25519_donna(shared2, secretKey, pbKey);
+			assert Hex.encode(shared2).equalsIgnoreCase(sharedResult);
+		});
+		System.out.println("serial calc end..............");
+		long end_2 = System.currentTimeMillis();
+		System.out.println("serial calc cost " + (end_2 - start_2));
 	}
 
 	public interface Curve25519Library extends Library {
-		Curve25519Library INSTANCE = Native.load(extractFile("macx/curve25519.so"), Curve25519Library.class);
+		Curve25519Library INSTANCE = Native.load(loadCurve25519(), Curve25519Library.class);
 		void curve25519_donna(byte[] shared, byte[] secret, byte[] publicKey);
 	}
 
-	private static String extractFile(final String fileName) {
+	private static String loadCurve25519() {
 		try {
-			final InputStream source = Curve25519Library.class.getClassLoader().getResourceAsStream(fileName);
-			final File file = File.createTempFile("lib", null);
-			FileUtils.copyInputStreamToFile(source, file);
+			File file = Native.extractFromResourcePath("curve25519", Curve25519Library.class.getClassLoader());
+			System.out.println(file.getAbsolutePath());
 			return file.getAbsolutePath();
 		} catch (Throwable e) {
 			throw new RuntimeException(e);
